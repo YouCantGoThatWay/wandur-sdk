@@ -5,7 +5,7 @@ using Wandur.Core.Mapping;
 namespace Wandur.Core.Protocol;
 
 /// <summary>Discovers data subscriptions without interpreting game-specific field meanings.</summary>
-internal sealed class ProtocolDiscovery
+public sealed class ProtocolDiscovery
 {
     // Data modules plus the implemented password login flow. Do not promise media or web views.
     public const string GmcpSupports = "Core.Supports.Set [\"Room 1\",\"Char 1\",\"Char.Base 1\",\"Char.Vitals 1\",\"Char.Maxstats 1\",\"Char.Status 1\",\"Char.Login 1\",\"Char.Skills 1\",\"Char.Items 1\",\"Char.Afflictions 1\",\"Char.Defences 1\",\"Group 1\",\"Comm 1\",\"Comm.Channel 1\",\"MSDP 1\"]";

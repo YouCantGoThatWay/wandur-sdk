@@ -84,7 +84,7 @@ public sealed class TelnetParser
                         if (!_overflow && _sub.Count > 0)
                         {
                             if (_sub[0] == 24 && _local.Contains(24) && _sub.Count > 1 && _sub[1] == 1)
-                                replies.AddRange(Subnegotiation(24, new byte[] { 0 }.Concat(Encoding.ASCII.GetBytes("WANDUR")).ToArray()));
+                                replies.AddRange(Subnegotiation(24, new byte[] { 0 }.Concat(Encoding.ASCII.GetBytes(ClientIdentity.TerminalType)).ToArray()));
                             if (_sub[0] == 201 && _remote.Contains(201))
                             {
                                 var payload = _sub.Skip(1).ToArray();
@@ -139,7 +139,7 @@ public sealed class TelnetParser
                         reply.AddRange([255, 253, option]);
                         if (option == 201)
                         {
-                            reply.AddRange(Subnegotiation(201, Encoding.UTF8.GetBytes("Core.Hello {\"client\":\"Wandur\",\"version\":\"0.1.0\"}")));
+                            reply.AddRange(Subnegotiation(201, Encoding.UTF8.GetBytes(ClientIdentity.GmcpHelloBody)));
                             reply.AddRange(Subnegotiation(201, Encoding.UTF8.GetBytes(ProtocolDiscovery.GmcpSupports)));
                             reply.AddRange(Subnegotiation(201, Encoding.UTF8.GetBytes(ProtocolDiscovery.GmcpDiscovery)));
                         }
