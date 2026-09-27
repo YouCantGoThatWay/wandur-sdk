@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wandur.Models", "Wandur.Mod
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wandur.Protocol", "Wandur.Protocol\Wandur.Protocol.csproj", "{18AC59A2-5820-4236-BE6A-008856E1D80E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wandur.Protocol.Tests", "Wandur.Protocol.Tests\Wandur.Protocol.Tests.csproj", "{385D1156-82CD-46E8-BAC1-4BC640A20BA8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,6 +43,18 @@ Global
 		{18AC59A2-5820-4236-BE6A-008856E1D80E}.Release|x64.Build.0 = Release|Any CPU
 		{18AC59A2-5820-4236-BE6A-008856E1D80E}.Release|x86.ActiveCfg = Release|Any CPU
 		{18AC59A2-5820-4236-BE6A-008856E1D80E}.Release|x86.Build.0 = Release|Any CPU
+		{385D1156-82CD-46E8-BAC1-4BC640A20BA8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{385D1156-82CD-46E8-BAC1-4BC640A20BA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{385D1156-82CD-46E8-BAC1-4BC640A20BA8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{385D1156-82CD-46E8-BAC1-4BC640A20BA8}.Debug|x64.Build.0 = Debug|Any CPU
+		{385D1156-82CD-46E8-BAC1-4BC640A20BA8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{385D1156-82CD-46E8-BAC1-4BC640A20BA8}.Debug|x86.Build.0 = Debug|Any CPU
+		{385D1156-82CD-46E8-BAC1-4BC640A20BA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{385D1156-82CD-46E8-BAC1-4BC640A20BA8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{385D1156-82CD-46E8-BAC1-4BC640A20BA8}.Release|x64.ActiveCfg = Release|Any CPU
+		{385D1156-82CD-46E8-BAC1-4BC640A20BA8}.Release|x64.Build.0 = Release|Any CPU
+		{385D1156-82CD-46E8-BAC1-4BC640A20BA8}.Release|x86.ActiveCfg = Release|Any CPU
+		{385D1156-82CD-46E8-BAC1-4BC640A20BA8}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
