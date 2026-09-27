@@ -40,10 +40,26 @@ public sealed record TelnetParserOptions
     public MttsCapabilities Capabilities { get; init; } =
         MttsCapabilities.Ansi | MttsCapabilities.Vt100 | MttsCapabilities.Utf8 | MttsCapabilities.Colors256 | MttsCapabilities.TrueColor;
 
+    /// <summary>NAWS width in columns sent when the server asks with DO NAWS, 0 to 65535.
+    /// <see cref="TelnetParser.UpdateWindowSize"/> changes it later.</summary>
+    public int WindowColumns { get; init; } = 100;
+
+    /// <summary>NAWS height in rows, 0 to 65535.</summary>
+    public int WindowRows { get; init; } = 40;
+
     internal void Validate()
     {
+        ValidateSize(WindowColumns, WindowRows);
         ValidateName(ClientName, nameof(ClientName));
         ValidateName(TerminalType, nameof(TerminalType));
+    }
+
+    internal static void ValidateSize(int columns, int rows)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(columns);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(columns, ushort.MaxValue);
+        ArgumentOutOfRangeException.ThrowIfNegative(rows);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(rows, ushort.MaxValue);
     }
 
     private static void ValidateName(string value, string name)

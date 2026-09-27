@@ -34,6 +34,7 @@ public sealed class TelnetParser
     private readonly ProtocolDiscovery _discovery = new();
     private readonly TelnetParserOptions _options;
     private int _terminalTypeRequests;
+    private (int Columns, int Rows)? _sentWindowSize;
     private bool _overflow;
     private bool _subPrivate;
     private bool _localPrivate;
@@ -47,6 +48,36 @@ public sealed class TelnetParser
     {
         _options = options ?? TelnetParserOptions.Default;
         _options.Validate();
+        WindowColumns = _options.WindowColumns;
+        WindowRows = _options.WindowRows;
+    }
+
+    /// <summary>The window width the parser reports through NAWS.</summary>
+    public int WindowColumns { get; private set; }
+
+    /// <summary>The window height the parser reports through NAWS.</summary>
+    public int WindowRows { get; private set; }
+
+    /// <summary>Whether the server asked for NAWS (DO NAWS) and the parser agreed.</summary>
+    public bool NawsEnabled => _local.Contains(31);
+
+    /// <summary>Record a new window size and return the NAWS subnegotiation to send, or an empty array
+    /// when NAWS is not agreed yet or the server already has this size. The size is kept either way and
+    /// sent when the server later asks. Call it under the same lock as <see cref="Feed"/>.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is outside 0 to 65535.</exception>
+    public byte[] UpdateWindowSize(int columns, int rows)
+    {
+        TelnetParserOptions.ValidateSize(columns, rows);
+        WindowColumns = columns;
+        WindowRows = rows;
+        if (!NawsEnabled || _sentWindowSize == (columns, rows)) return [];
+        return WindowSizeSubnegotiation();
+    }
+
+    private byte[] WindowSizeSubnegotiation()
+    {
+        _sentWindowSize = (WindowColumns, WindowRows);
+        return Subnegotiation(31, [(byte)(WindowColumns >> 8), (byte)WindowColumns, (byte)(WindowRows >> 8), (byte)WindowRows]);
     }
 
     /// <summary>The options this parser was created with.</summary>
@@ -169,13 +200,13 @@ public sealed class TelnetParser
                 if (option == 1) ServerEcho = false;
                 _discovery.Reset(option);
                 break;
-            case 253: // DO: a conservative fixed terminal width until resize support.
+            case 253: // DO: suppress-go-ahead, terminal type and window size.
                 if (option is 3 or 24 or 31)
                 {
                     if (_local.Add(option))
                     {
                         reply.AddRange([255, 251, option]);
-                        if (option == 31) reply.AddRange(Subnegotiation(31, [0, 100, 0, 40]));
+                        if (option == 31) reply.AddRange(WindowSizeSubnegotiation());
                     }
                 }
                 else reply.AddRange([255, 252, option]);
@@ -183,6 +214,7 @@ public sealed class TelnetParser
             case 254:
                 if (_local.Remove(option)) reply.AddRange([255, 252, option]);
                 if (option == 24) _terminalTypeRequests = 0; // MTTS: DONT TTYPE restarts the cycle.
+                if (option == 31) _sentWindowSize = null;
                 break;
         }
     }
