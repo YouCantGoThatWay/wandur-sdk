@@ -84,7 +84,13 @@ public sealed class TelnetParser
 
     /// <summary>Record a new window size and return the NAWS subnegotiation to send, or an empty array
     /// when NAWS is not agreed yet or the server already has this size. The size is kept either way and
-    /// sent when the server later asks. Call it under the same lock as <see cref="Feed"/>.</summary>
+    /// sent when the server later asks. A dimension of 0 is sent as is (NAWS uses it for "unknown").
+    ///
+    /// Ordering rule: write the returned bytes to the connection in the order the parser produced them,
+    /// relative to <see cref="Feed"/> replies. Holding the parser lock while calling is not enough on its
+    /// own, because a reply produced earlier may still be waiting to be written. Calling this from the same
+    /// serialized context that writes <see cref="Feed"/>'s replies, or enqueuing both onto the outgoing
+    /// queue while holding the parser lock, satisfies the rule.</summary>
     /// <exception cref="ArgumentOutOfRangeException">A dimension is outside 0 to 65535.</exception>
     public byte[] UpdateWindowSize(int columns, int rows)
     {

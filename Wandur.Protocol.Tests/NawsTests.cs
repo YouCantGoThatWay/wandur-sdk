@@ -69,6 +69,14 @@ public class NawsTests
         Assert.Empty(parser.Feed([255, 253, 31]).Reply);
     }
 
+    [Fact]
+    public void ZeroDimensionIsSentAsIs()
+    {
+        var parser = new TelnetParser(new TelnetParserOptions { WindowColumns = 0, WindowRows = 24 });
+        Assert.Equal([255, 251, 31, .. Naws(0, 0, 0, 24)], parser.Feed([255, 253, 31]).Reply);
+        Assert.Equal(Naws(0, 80, 0, 0), parser.UpdateWindowSize(80, 0));
+    }
+
     [Theory]
     [InlineData(-1, 24)]
     [InlineData(80, -1)]

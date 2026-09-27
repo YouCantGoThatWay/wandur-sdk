@@ -30,6 +30,12 @@ IAC EOR in `TelnetPacket.PromptMarks` at its offset in the text, and, when
 `AcceptMssp` is on, accepts MSSP and delivers each block as an `MsspTable` in
 `TelnetPacket.Mssp`.
 
+Write the bytes `UpdateWindowSize` returns to the connection in the order the
+parser produced them, relative to `Feed` replies. Calling it from the same
+serialized context that writes `Feed`'s replies, or enqueuing both onto the
+outgoing queue under the parser lock, satisfies that; holding the lock alone
+does not, since an earlier reply may not be written yet.
+
 The default MTTS capabilities are ANSI, VT100, 256 colors and truecolor. They
 do not claim UTF-8: set `MttsCapabilities.Utf8` in `Capabilities` when the
 connection is decoded as UTF-8, and `MttsCapabilities.Ssl` on TLS.
