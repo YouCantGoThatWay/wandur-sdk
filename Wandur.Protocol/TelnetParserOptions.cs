@@ -47,6 +47,10 @@ public sealed record TelnetParserOptions
     /// <summary>NAWS height in rows, 0 to 65535.</summary>
     public int WindowRows { get; init; } = 40;
 
+    /// <summary>Answer WILL EOR (option 25) with DO, so servers mark prompts with IAC EOR. GA and EOR
+    /// marks are reported in <see cref="TelnetPacket.PromptMarks"/> whatever this is set to.</summary>
+    public bool AcceptEndOfRecord { get; init; } = true;
+
     internal void Validate()
     {
         ValidateSize(WindowColumns, WindowRows);

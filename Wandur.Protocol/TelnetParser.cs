@@ -16,8 +16,26 @@ public sealed record TelnetDataMessage(byte Option, byte[] Payload)
     public bool MayContainPrivateText { get; init; }
 }
 
+/// <summary>Which telnet command ended a prompt.</summary>
+public enum TelnetPromptKind
+{
+    /// <summary>IAC GA (249).</summary>
+    GoAhead,
+    /// <summary>IAC EOR (239), usually sent once EOR (option 25) is agreed.</summary>
+    EndOfRecord
+}
+
+/// <summary>A prompt boundary. <paramref name="Offset"/> counts the bytes of <see cref="TelnetPacket.Text"/>
+/// that came before the mark, so <c>Text[..Offset]</c> is the text up to the prompt end. A mark whose IAC
+/// arrived in an earlier read has offset 0: everything before it was in earlier packets. Several marks can
+/// share an offset (a server may send GA and EOR together, or GA on every write); consumers decide which
+/// ones matter.</summary>
+public readonly record struct TelnetPromptMark(int Offset, TelnetPromptKind Kind);
+
 public sealed record TelnetPacket(byte[] Text, byte[] Reply, IReadOnlyList<string> Gmcp)
 {
+    /// <summary>GA and EOR prompt boundaries in <see cref="Text"/>, in stream order.</summary>
+    public IReadOnlyList<TelnetPromptMark> PromptMarks { get; init; } = [];
     public bool MayContainPrivateText { get; init; }
     public IReadOnlyList<byte[]> Msdp { get; init; } = [];
     public IReadOnlyList<TelnetDataMessage> DataMessages { get; init; } = [];
@@ -97,6 +115,7 @@ public sealed class TelnetParser
         var gmcp = new List<string>();
         var msdp = new List<byte[]>();
         var dataMessages = new List<TelnetDataMessage>();
+        List<TelnetPromptMark>? promptMarks = null;
         // A single read can enter and leave server echo mode. Preserve any private
         // interval instead of inferring privacy from only the final echo state.
         var mayContainPrivateText = ServerEcho || _localPrivate;
@@ -112,7 +131,12 @@ public sealed class TelnetParser
                     if (b == 255) { text.Add(b); _state = State.Text; }
                     else if (b is >= 251 and <= 254) { _verb = b; _state = State.Option; }
                     else if (b == 250) { _sub.Clear(); _overflow = false; _subPrivate = ServerEcho || _localPrivate; _state = State.Sub; }
-                    else _state = State.Text;
+                    else
+                    {
+                        if (b is 249 or 239)
+                            (promptMarks ??= []).Add(new(text.Count, b == 249 ? TelnetPromptKind.GoAhead : TelnetPromptKind.EndOfRecord));
+                        _state = State.Text;
+                    }
                     break;
                 case State.Option:
                     Negotiate(b, replies);
@@ -156,6 +180,7 @@ public sealed class TelnetParser
         {
             Msdp = msdp,
             DataMessages = dataMessages,
+            PromptMarks = promptMarks ?? (IReadOnlyList<TelnetPromptMark>)[],
             MayContainPrivateText = mayContainPrivateText
         };
     }
@@ -176,8 +201,8 @@ public sealed class TelnetParser
         }
         switch (_verb)
         {
-            case 251: // WILL: accept server echo, suppress-go-ahead, MSDP, and GMCP.
-                if (option is 1 or 3 or 69 or 201)
+            case 251: // WILL: accept server echo, suppress-go-ahead, MSDP, GMCP and, by option, end-of-record.
+                if (option is 1 or 3 or 69 or 201 || (option == 25 && _options.AcceptEndOfRecord))
                 {
                     if (_remote.Add(option))
                     {
