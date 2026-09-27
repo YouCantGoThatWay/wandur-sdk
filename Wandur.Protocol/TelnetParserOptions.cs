@@ -25,7 +25,7 @@ public enum MttsCapabilities
 /// from the additions documented on each property.</summary>
 public sealed record TelnetParserOptions
 {
-    /// <summary>The defaults: the Wandur client on a UTF-8 profile without TLS.</summary>
+    /// <summary>The defaults: the Wandur client terminal without TLS and without claiming UTF-8.</summary>
     public static TelnetParserOptions Default { get; } = new();
 
     /// <summary>First TTYPE answer. Printable ASCII, at most 64 characters.</summary>
@@ -34,11 +34,13 @@ public sealed record TelnetParserOptions
     /// <summary>Second TTYPE answer. Printable ASCII, at most 64 characters.</summary>
     public string TerminalType { get; init; } = "XTERM-256COLOR";
 
-    /// <summary>Third and later TTYPE answers, sent as <c>MTTS &lt;decimal&gt;</c>. The consumer clears
-    /// <see cref="MttsCapabilities.Utf8"/> for a non-UTF-8 profile and sets <see cref="MttsCapabilities.Ssl"/>
-    /// on a TLS connection.</summary>
+    /// <summary>Third and later TTYPE answers, sent as <c>MTTS &lt;decimal&gt;</c>. The default is ANSI,
+    /// VT100, 256 colors and truecolor (267). It does not include <see cref="MttsCapabilities.Utf8"/>: the
+    /// consumer sets <see cref="MttsCapabilities.Utf8"/> when it decodes the connection as UTF-8, and
+    /// <see cref="MttsCapabilities.Ssl"/> on a TLS connection, so a Latin-1 profile never claims UTF-8.
+    /// Only the defined bits (0 to 4095) are allowed.</summary>
     public MttsCapabilities Capabilities { get; init; } =
-        MttsCapabilities.Ansi | MttsCapabilities.Vt100 | MttsCapabilities.Utf8 | MttsCapabilities.Colors256 | MttsCapabilities.TrueColor;
+        MttsCapabilities.Ansi | MttsCapabilities.Vt100 | MttsCapabilities.Colors256 | MttsCapabilities.TrueColor;
 
     /// <summary>NAWS width in columns sent when the server asks with DO NAWS, 0 to 65535.
     /// <see cref="TelnetParser.UpdateWindowSize"/> changes it later.</summary>
@@ -58,6 +60,8 @@ public sealed record TelnetParserOptions
     internal void Validate()
     {
         ValidateSize(WindowColumns, WindowRows);
+        if ((int)Capabilities is < 0 or > 4095)
+            throw new ArgumentOutOfRangeException(nameof(Capabilities), Capabilities, "Capabilities may only use the defined MTTS bits (0 to 4095).");
         ValidateName(ClientName, nameof(ClientName));
         ValidateName(TerminalType, nameof(TerminalType));
     }

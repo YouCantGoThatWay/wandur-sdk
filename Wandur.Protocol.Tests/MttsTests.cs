@@ -22,12 +22,38 @@ public class MttsTests
     }
 
     [Fact]
-    public void DefaultCapabilitiesMatchTheClientTerminal()
+    public void DefaultCapabilitiesLeaveUtf8ToTheConsumer()
     {
         Assert.Equal(
-            MttsCapabilities.Ansi | MttsCapabilities.Vt100 | MttsCapabilities.Utf8 | MttsCapabilities.Colors256 | MttsCapabilities.TrueColor,
+            MttsCapabilities.Ansi | MttsCapabilities.Vt100 | MttsCapabilities.Colors256 | MttsCapabilities.TrueColor,
             TelnetParserOptions.Default.Capabilities);
-        Assert.Equal(271, (int)TelnetParserOptions.Default.Capabilities);
+        Assert.Equal(267, (int)TelnetParserOptions.Default.Capabilities);
+    }
+
+    [Fact]
+    public void Utf8ConsumerAdvertisesUtf8()
+    {
+        var options = new TelnetParserOptions { Capabilities = TelnetParserOptions.Default.Capabilities | MttsCapabilities.Utf8 };
+        var parser = Agreed(options);
+        parser.Feed(Send);
+        parser.Feed(Send);
+        Assert.Equal("MTTS 271", Answer(parser.Feed(Send).Reply));
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(4096)]
+    [InlineData(int.MaxValue)]
+    public void UndefinedCapabilityBitsAreRejected(int value)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new TelnetParser(new TelnetParserOptions { Capabilities = (MttsCapabilities)value }));
+    }
+
+    [Fact]
+    public void EveryDefinedCapabilityBitIsAccepted()
+    {
+        _ = new TelnetParser(new TelnetParserOptions { Capabilities = (MttsCapabilities)4095 });
+        _ = new TelnetParser(new TelnetParserOptions { Capabilities = MttsCapabilities.None });
     }
 
     [Fact]
@@ -53,9 +79,9 @@ public class MttsTests
         var parser = Agreed();
         Assert.Equal(ClientIdentity.TerminalType, Answer(parser.Feed(Send).Reply));
         Assert.Equal("XTERM-256COLOR", Answer(parser.Feed(Send).Reply));
-        Assert.Equal("MTTS 271", Answer(parser.Feed(Send).Reply));
-        Assert.Equal("MTTS 271", Answer(parser.Feed(Send).Reply));
-        Assert.Equal("MTTS 271", Answer(parser.Feed(Send).Reply));
+        Assert.Equal("MTTS 267", Answer(parser.Feed(Send).Reply));
+        Assert.Equal("MTTS 267", Answer(parser.Feed(Send).Reply));
+        Assert.Equal("MTTS 267", Answer(parser.Feed(Send).Reply));
     }
 
     [Fact]

@@ -30,6 +30,10 @@ IAC EOR in `TelnetPacket.PromptMarks` at its offset in the text, and, when
 `AcceptMssp` is on, accepts MSSP and delivers each block as an `MsspTable` in
 `TelnetPacket.Mssp`.
 
+The default MTTS capabilities are ANSI, VT100, 256 colors and truecolor. They
+do not claim UTF-8: set `MttsCapabilities.Utf8` in `Capabilities` when the
+connection is decoded as UTF-8, and `MttsCapabilities.Ssl` on TLS.
+
 Both are game-neutral. Named keys are extensible: `health`, `jetpack_fuel`,
 `engineering` or another game's vocabulary all validate the same way.
 
