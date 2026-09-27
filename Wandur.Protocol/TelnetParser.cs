@@ -32,11 +32,25 @@ public sealed class TelnetParser
     private readonly HashSet<byte> _remote = [];
     private readonly HashSet<byte> _local = [];
     private readonly ProtocolDiscovery _discovery = new();
+    private readonly TelnetParserOptions _options;
+    private int _terminalTypeRequests;
     private bool _overflow;
     private bool _subPrivate;
     private bool _localPrivate;
     public bool ServerEcho { get; private set; }
     public TelnetProtocolState ProtocolState { get; private set; } = new();
+
+    public TelnetParser() : this(null) { }
+
+    /// <param name="options">What to tell the server about the client; null means <see cref="TelnetParserOptions.Default"/>.</param>
+    public TelnetParser(TelnetParserOptions? options)
+    {
+        _options = options ?? TelnetParserOptions.Default;
+        _options.Validate();
+    }
+
+    /// <summary>The options this parser was created with.</summary>
+    public TelnetParserOptions Options => _options;
 
     /// <summary>Latch privacy on an unfinished message, even if no bytes arrive during the interval.</summary>
     public void SetLocalPrivateInput(bool enabled)
@@ -84,7 +98,7 @@ public sealed class TelnetParser
                         if (!_overflow && _sub.Count > 0)
                         {
                             if (_sub[0] == 24 && _local.Contains(24) && _sub.Count > 1 && _sub[1] == 1)
-                                replies.AddRange(Subnegotiation(24, new byte[] { 0 }.Concat(Encoding.ASCII.GetBytes(ClientIdentity.TerminalType)).ToArray()));
+                                replies.AddRange(Subnegotiation(24, new byte[] { 0 }.Concat(Encoding.ASCII.GetBytes(NextTerminalType())).ToArray()));
                             if (_sub[0] == 201 && _remote.Contains(201))
                             {
                                 var payload = _sub.Skip(1).ToArray();
@@ -168,8 +182,22 @@ public sealed class TelnetParser
                 break;
             case 254:
                 if (_local.Remove(option)) reply.AddRange([255, 252, option]);
+                if (option == 24) _terminalTypeRequests = 0; // MTTS: DONT TTYPE restarts the cycle.
                 break;
         }
+    }
+
+    /// <summary>MTTS cycle: client name, terminal type, then <c>MTTS n</c>, repeated so the server sees
+    /// the end of the list.</summary>
+    private string NextTerminalType()
+    {
+        if (_terminalTypeRequests < 3) _terminalTypeRequests++;
+        return _terminalTypeRequests switch
+        {
+            1 => _options.ClientName,
+            2 => _options.TerminalType,
+            _ => "MTTS " + ((int)_options.Capabilities).ToString(System.Globalization.CultureInfo.InvariantCulture)
+        };
     }
 
     internal static byte[] Subnegotiation(byte option, byte[] payload)
