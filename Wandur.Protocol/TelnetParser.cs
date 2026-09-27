@@ -56,6 +56,7 @@ public sealed class TelnetParser
     private readonly List<byte> _sub = [];
     private readonly HashSet<byte> _remote = [];
     private readonly HashSet<byte> _local = [];
+    private readonly HashSet<byte> _requested = [];
     private readonly ProtocolDiscovery _discovery = new();
     private readonly TelnetParserOptions _options;
     private int _terminalTypeRequests;
@@ -109,6 +110,20 @@ public sealed class TelnetParser
     {
         _sentWindowSize = (WindowColumns, WindowRows);
         return Subnegotiation(31, [(byte)(WindowColumns >> 8), (byte)WindowColumns, (byte)(WindowRows >> 8), (byte)WindowRows]);
+    }
+
+    /// <summary>Ask the server for MSSP with IAC DO MSSP instead of waiting for it to offer. Returns the bytes
+    /// to write, or an empty array when MSSP is already enabled or already requested. A WILL MSSP that
+    /// answers the request enables it without a reply, a WONT MSSP clears the request without a reply, and
+    /// an MSSP block is accepted while the request is outstanding. The bytes follow the same ordering rule
+    /// as <see cref="UpdateWindowSize"/>.</summary>
+    /// <exception cref="InvalidOperationException"><see cref="TelnetParserOptions.AcceptMssp"/> is off.</exception>
+    public byte[] RequestMssp()
+    {
+        if (!_options.AcceptMssp)
+            throw new InvalidOperationException("RequestMssp needs TelnetParserOptions.AcceptMssp.");
+        if (_remote.Contains(70) || !_requested.Add(70)) return [];
+        return [255, 253, 70];
     }
 
     /// <summary>The options this parser was created with.</summary>
@@ -175,7 +190,7 @@ public sealed class TelnetParser
                                 dataMessages.Add(new(201, payload) { MayContainPrivateText = _subPrivate || GmcpLoginProtocol.IsPrivate(gmcp[^1]) });
                                 foreach (var request in _discovery.Receive(201, payload)) replies.AddRange(Subnegotiation(201, request));
                             }
-                            if (_sub[0] == 70 && _remote.Contains(70)
+                            if (_sub[0] == 70 && (_remote.Contains(70) || _requested.Contains(70))
                                 && MsspTable.Parse(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_sub)[1..]) is { Count: > 0 } table)
                                 (mssp ??= []).Add(table);
                             if (_sub[0] == 69 && _remote.Contains(69))
@@ -222,7 +237,8 @@ public sealed class TelnetParser
             case 251: // WILL: accept server echo, suppress-go-ahead, MSDP, GMCP and, by option, EOR and MSSP.
                 if (option is 1 or 3 or 69 or 201 || (option == 25 && _options.AcceptEndOfRecord) || (option == 70 && _options.AcceptMssp))
                 {
-                    if (_remote.Add(option))
+                    if (_requested.Remove(option)) _remote.Add(option); // Answers our DO: no reply.
+                    else if (_remote.Add(option))
                     {
                         reply.AddRange([255, 253, option]);
                         if (option == 201)
@@ -239,7 +255,8 @@ public sealed class TelnetParser
                 else reply.AddRange([255, 254, option]);
                 break;
             case 252: // WONT
-                if (_remote.Remove(option)) reply.AddRange([255, 254, option]);
+                // A WONT that refuses our own DO needs no reply.
+                if (!_requested.Remove(option) && _remote.Remove(option)) reply.AddRange([255, 254, option]);
                 if (option == 1) ServerEcho = false;
                 _discovery.Reset(option);
                 break;

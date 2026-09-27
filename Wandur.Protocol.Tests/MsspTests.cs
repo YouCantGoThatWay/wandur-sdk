@@ -127,6 +127,68 @@ public class MsspTests
     }
 
     [Fact]
+    public void BlockAfterWillButBeforeOurDoIsWrittenIsAccepted()
+    {
+        // WILL and the block arrive in one read: the DO is still only in this packet's Reply, unwritten.
+        var parser = new TelnetParser(new TelnetParserOptions { AcceptMssp = true });
+        var packet = parser.Feed([255, 251, 70, .. Block([Var, .. A("NAME"), Val, .. A("Eager")])]);
+        Assert.Equal(new byte[] { 255, 253, 70 }, packet.Reply);
+        Assert.Equal("Eager", Assert.Single(packet.Mssp).GetFirst("NAME"));
+    }
+
+    private static TelnetParser Opted() => new(new TelnetParserOptions { AcceptMssp = true });
+
+    [Fact]
+    public void RequestMsspThrowsWithoutOptIn()
+    {
+        Assert.Throws<InvalidOperationException>(() => new TelnetParser().RequestMssp());
+    }
+
+    [Fact]
+    public void RequestMsspSendsDoOnlyOnce()
+    {
+        var parser = Opted();
+        Assert.Equal(new byte[] { 255, 253, 70 }, parser.RequestMssp());
+        Assert.Empty(parser.RequestMssp());
+    }
+
+    [Fact]
+    public void RequestMsspSendsNothingWhenAlreadyEnabled()
+    {
+        var parser = Agreed();
+        Assert.Empty(parser.RequestMssp());
+    }
+
+    [Fact]
+    public void WillWhileRequestedEnablesWithoutReply()
+    {
+        var parser = Opted();
+        parser.RequestMssp();
+        Assert.Empty(parser.Feed([255, 251, 70]).Reply);
+        Assert.Empty(parser.RequestMssp());
+        Assert.Single(parser.Feed(Block([Var, .. A("NAME"), Val, .. A("Asked")])).Mssp);
+        Assert.Equal(new byte[] { 255, 254, 70 }, parser.Feed([255, 252, 70]).Reply);
+    }
+
+    [Fact]
+    public void WontWhileRequestedClearsTheRequestWithoutReply()
+    {
+        var parser = Opted();
+        parser.RequestMssp();
+        Assert.Empty(parser.Feed([255, 252, 70]).Reply);
+        Assert.Empty(parser.Feed(Block([Var, .. A("NAME"), Val, .. A("Late")])).Mssp);
+        Assert.Equal(new byte[] { 255, 253, 70 }, parser.RequestMssp());
+    }
+
+    [Fact]
+    public void BlockWhileRequestedIsAccepted()
+    {
+        var parser = Opted();
+        parser.RequestMssp();
+        Assert.Equal("Direct", Assert.Single(parser.Feed(Block([Var, .. A("NAME"), Val, .. A("Direct")])).Mssp).GetFirst("NAME"));
+    }
+
+    [Fact]
     public void PlainTextReplyIsParsed()
     {
         var text = "Welcome\r\nMSSP-REPLY-START\r\nNAME\tSomewhere\r\nPORT\t4000\r\nPORT\t4001\r\nbroken line\r\nMSSP-REPLY-END\r\n";

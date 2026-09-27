@@ -28,7 +28,9 @@ cycle (client name, terminal type, then `MTTS <bitvector>` from
 `UpdateWindowSize` once NAWS is agreed, accepts EOR and reports every IAC GA and
 IAC EOR in `TelnetPacket.PromptMarks` at its offset in the text, and, when
 `AcceptMssp` is on, accepts MSSP and delivers each block as an `MsspTable` in
-`TelnetPacket.Mssp`.
+`TelnetPacket.Mssp`. `RequestMssp()` asks a server for MSSP with IAC DO MSSP
+instead of waiting for its offer; it needs `AcceptMssp` and follows the same
+ordering rule as `UpdateWindowSize`.
 
 Write the bytes `UpdateWindowSize` returns to the connection in the order the
 parser produced them, relative to `Feed` replies. Calling it from the same
