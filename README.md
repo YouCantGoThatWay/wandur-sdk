@@ -21,6 +21,15 @@ GMCP and MSDP decoding, GMCP login, room protocol decoding, and the diagnostic
 formatter and redactor that make received protocol traffic readable without
 leaking credentials.
 
+The Telnet parser takes an optional `TelnetParserOptions`; `new TelnetParser()`
+uses defaults that match the desktop client. It answers TTYPE with the MTTS
+cycle (client name, terminal type, then `MTTS <bitvector>` from
+`MttsCapabilities`), reports the NAWS window size and returns an update from
+`UpdateWindowSize` once NAWS is agreed, accepts EOR and reports every IAC GA and
+IAC EOR in `TelnetPacket.PromptMarks` at its offset in the text, and, when
+`AcceptMssp` is on, accepts MSSP and delivers each block as an `MsspTable` in
+`TelnetPacket.Mssp`.
+
 Both are game-neutral. Named keys are extensible: `health`, `jetpack_fuel`,
 `engineering` or another game's vocabulary all validate the same way.
 
@@ -63,10 +72,16 @@ dotnet build Wandur.Sdk.sln -c Release
 `TreatWarningsAsErrors` is on and lock files are committed, so CI restores with
 `--locked-mode`.
 
-There is no test project here yet. The tests that cover this code live in the
-client's `Wandur.Core.Tests` project, which reaches the protocol internals
-through `InternalsVisibleTo`. CI in this repository therefore restores and
-builds but does not run tests; the client repository runs them.
+## Test
+
+```sh
+dotnet test Wandur.Sdk.sln
+```
+
+`Wandur.Protocol.Tests` covers the Telnet parser: its baseline behaviour, MTTS,
+NAWS, GA and EOR prompt marks, and MSSP. CI runs it after the build. The
+client's `Wandur.Core.Tests` project still covers the rest of the protocol code
+through `InternalsVisibleTo`.
 
 ## Packaging
 
