@@ -36,6 +36,9 @@ public sealed record TelnetPacket(byte[] Text, byte[] Reply, IReadOnlyList<strin
 {
     /// <summary>GA and EOR prompt boundaries in <see cref="Text"/>, in stream order.</summary>
     public IReadOnlyList<TelnetPromptMark> PromptMarks { get; init; } = [];
+    /// <summary>MSSP tables received in this read, when <see cref="TelnetParserOptions.AcceptMssp"/> is on.
+    /// A block with no usable variable is not reported.</summary>
+    public IReadOnlyList<MsspTable> Mssp { get; init; } = [];
     public bool MayContainPrivateText { get; init; }
     public IReadOnlyList<byte[]> Msdp { get; init; } = [];
     public IReadOnlyList<TelnetDataMessage> DataMessages { get; init; } = [];
@@ -116,6 +119,7 @@ public sealed class TelnetParser
         var msdp = new List<byte[]>();
         var dataMessages = new List<TelnetDataMessage>();
         List<TelnetPromptMark>? promptMarks = null;
+        List<MsspTable>? mssp = null;
         // A single read can enter and leave server echo mode. Preserve any private
         // interval instead of inferring privacy from only the final echo state.
         var mayContainPrivateText = ServerEcho || _localPrivate;
@@ -161,6 +165,9 @@ public sealed class TelnetParser
                                 dataMessages.Add(new(201, payload) { MayContainPrivateText = _subPrivate || GmcpLoginProtocol.IsPrivate(gmcp[^1]) });
                                 foreach (var request in _discovery.Receive(201, payload)) replies.AddRange(Subnegotiation(201, request));
                             }
+                            if (_sub[0] == 70 && _remote.Contains(70)
+                                && MsspTable.Parse(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_sub)[1..]) is { Count: > 0 } table)
+                                (mssp ??= []).Add(table);
                             if (_sub[0] == 69 && _remote.Contains(69))
                             {
                                 var payload = _sub.Skip(1).ToArray();
@@ -181,6 +188,7 @@ public sealed class TelnetParser
             Msdp = msdp,
             DataMessages = dataMessages,
             PromptMarks = promptMarks ?? (IReadOnlyList<TelnetPromptMark>)[],
+            Mssp = mssp ?? (IReadOnlyList<MsspTable>)[],
             MayContainPrivateText = mayContainPrivateText
         };
     }
@@ -201,8 +209,8 @@ public sealed class TelnetParser
         }
         switch (_verb)
         {
-            case 251: // WILL: accept server echo, suppress-go-ahead, MSDP, GMCP and, by option, end-of-record.
-                if (option is 1 or 3 or 69 or 201 || (option == 25 && _options.AcceptEndOfRecord))
+            case 251: // WILL: accept server echo, suppress-go-ahead, MSDP, GMCP and, by option, EOR and MSSP.
+                if (option is 1 or 3 or 69 or 201 || (option == 25 && _options.AcceptEndOfRecord) || (option == 70 && _options.AcceptMssp))
                 {
                     if (_remote.Add(option))
                     {

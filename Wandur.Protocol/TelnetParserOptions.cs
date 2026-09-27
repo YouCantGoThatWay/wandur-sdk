@@ -51,6 +51,10 @@ public sealed record TelnetParserOptions
     /// marks are reported in <see cref="TelnetPacket.PromptMarks"/> whatever this is set to.</summary>
     public bool AcceptEndOfRecord { get; init; } = true;
 
+    /// <summary>Answer WILL MSSP (option 70) with DO and report the server's tables in
+    /// <see cref="TelnetPacket.Mssp"/>. Off by default, so existing consumers keep refusing it.</summary>
+    public bool AcceptMssp { get; init; }
+
     internal void Validate()
     {
         ValidateSize(WindowColumns, WindowRows);
