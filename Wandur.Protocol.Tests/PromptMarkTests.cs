@@ -68,6 +68,44 @@ public class PromptMarkTests
     }
 
     [Fact]
+    public void MarkRightAfterASplitUtf8SequenceKeepsTextAndOffset()
+    {
+        var parser = new TelnetParser();
+        var decoder = Encoding.UTF8.GetDecoder();
+        var first = parser.Feed([.. "caf"u8, 0xC3]);
+        Assert.Empty(first.PromptMarks);
+        var decoded = Decode(decoder, first.Text);
+        Assert.Equal("caf", decoded);
+
+        var second = parser.Feed([0xA9, 255, 249, .. "x"u8]);
+        Assert.Equal(new byte[] { 0xA9, (byte)'x' }, second.Text);
+        var mark = Assert.Single(second.PromptMarks);
+        Assert.Equal(new TelnetPromptMark(1, TelnetPromptKind.GoAhead), mark);
+        Assert.Equal("caf\u00e9", decoded + Decode(decoder, second.Text[..mark.Offset]));
+        Assert.Equal("x", Decode(decoder, second.Text[mark.Offset..]));
+    }
+
+    [Fact]
+    public void MarkInsideAUtf8SequenceIsReportedAtItsByteOffset()
+    {
+        // A server that marks in the middle of a character: the same decoder carries the lead byte
+        // across the mark, as the TelnetPromptMark doc says to.
+        var packet = new TelnetParser().Feed([.. "> "u8, 0xC3, 255, 239, 0xA9]);
+        Assert.Equal(new byte[] { (byte)'>', (byte)' ', 0xC3, 0xA9 }, packet.Text);
+        var mark = Assert.Single(packet.PromptMarks);
+        Assert.Equal(3, mark.Offset);
+        var decoder = Encoding.UTF8.GetDecoder();
+        Assert.Equal("> ", Decode(decoder, packet.Text[..mark.Offset]));
+        Assert.Equal("\u00e9", Decode(decoder, packet.Text[mark.Offset..]));
+    }
+
+    private static string Decode(Decoder decoder, byte[] bytes)
+    {
+        var chars = new char[bytes.Length + 1];
+        return new string(chars, 0, decoder.GetChars(bytes, 0, bytes.Length, chars, 0, flush: false));
+    }
+
+    [Fact]
     public void PlainTextHasNoMarks()
     {
         Assert.Empty(new TelnetParser().Feed("hello\r\n"u8).PromptMarks);

@@ -29,7 +29,11 @@ public enum TelnetPromptKind
 /// that came before the mark, so <c>Text[..Offset]</c> is the text up to the prompt end. A mark whose IAC
 /// arrived in an earlier read has offset 0: everything before it was in earlier packets. Several marks can
 /// share an offset (a server may send GA and EOR together, or GA on every write); consumers decide which
-/// ones matter.</summary>
+/// ones matter.
+///
+/// Offsets are in bytes, and a multi-byte character can straddle a mark or a read. To split decoded text
+/// at a mark, decode <c>Text[..Offset]</c>, raise the prompt, then continue decoding the rest with the same
+/// decoder (flush false), so a partial character carries over instead of turning into U+FFFD.</summary>
 public readonly record struct TelnetPromptMark(int Offset, TelnetPromptKind Kind);
 
 public sealed record TelnetPacket(byte[] Text, byte[] Reply, IReadOnlyList<string> Gmcp)
